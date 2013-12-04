@@ -1,5 +1,16 @@
+// (language: Rust master branch)
 
-// language: Rust master branch
+#[link(name="persistent")];
+
+/*! Persistent data structures
+
+This is a collection of persistent data structures
+modeled after purely functional programming languages
+( https://en.wikipedia.org/wiki/Persistent_data_structure ).
+
+Currently, only an inductive linked list is implemented.
+
+*/
 
 use persistent::list::List;
 
@@ -8,6 +19,12 @@ pub mod list {
 
 // Is reference-counting the best choice for the shared immutable data?
 use std::rc::Rc;
+
+/// Persistent cons/nil list.
+/// O(1) access to the head of the list.
+/// Modified versions of the list with shared tails can be created efficiently.
+/// List members cannot be moved from,
+/// because a List might be sharing data with other Lists.
 
 // Rc's Eq/Ord compares the contained data, not the pointer.
 #[deriving(Clone, DeepClone, Eq, Ord, TotalEq, TotalOrd)]
@@ -34,9 +51,11 @@ impl<'self, T> Iterator<&'self T> for &'self List<T> {
 }
 
 impl<T> List<T> {
+  /// Lists are iterable.
   pub fn iter<'t>(&'t self) -> &'t List<T> {
     self
   }
+  /// Use this to pattern match on Nil vs Cons.
   pub fn node<'t>(&'t self) -> &'t Node<T> {
     self.node.borrow()
   }
@@ -47,14 +66,17 @@ impl<T> List<T> {
 // a list of Cells or RefCells that deliberately have shared mutable identity?
 // Freeze is forced by Rc.
 impl<T: Freeze> List<T> {
-  pub fn new(node: Node<T>) -> List<T> {
-    List{node: Rc::new(node)}
-  }
+  /// Create an empty list
   pub fn nil() -> List<T> {
     List::new(Nil)
   }
+  /// Create a list from the head and the rest of the list
   pub fn cons(x:T, xs:List<T>) -> List<T> {
     List::new(Cons(x, xs))
+  }
+  /// Create a list from a node (you probably won't need this function).
+  pub fn new(node: Node<T>) -> List<T> {
+    List{node: Rc::new(node)}
   }
 }
 impl<T: Clone+Freeze> List<T> {
@@ -64,6 +86,10 @@ impl<T: Clone+Freeze> List<T> {
       Cons(ref x, ref xs) => xs.reverse_impl(List::cons(x.clone(), acc))
     }
   }
+  /// Create a copy of this list in reverse order.
+  /// It cannot move the members because it can't know whether it has
+  /// the only reference to them.  (Rc doesn't even provide a runtime
+  /// feature to find out whether you have the last reference.)
   pub fn reverse(&self) -> List<T> {
     self.reverse_impl(List::nil())
   }
@@ -152,8 +178,8 @@ fn test() {
 
 
 
+// Trying out printing some stuff
 fn main() {
-  // Trying out printing some stuff
   let p0 = List::nil();
   let p1 : List<int> = List::cons(1, p0);
   let p2 = List::cons(2, p1.clone());
